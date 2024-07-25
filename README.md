@@ -1,5 +1,4 @@
-# OllmaAIVociceQTClient
-Based on the code provided, here is a bilingual README file for use on GitHub:
+
 
 ---
 
