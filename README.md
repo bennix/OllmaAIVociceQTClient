@@ -95,8 +95,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 4. 停止录音后，转录文本和AI生成的响应将显示在应用程序中。
 
-### 截图
-![screenshot](screenshot.png)
+
 
 ### 许可证
 此项目是根据MIT许可证授权的 
