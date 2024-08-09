@@ -1,9 +1,11 @@
+
 import sys
 import pyaudio
 import wave
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QComboBox, QLabel, QTextEdit, QMessageBox
 import whisper
-import ollama
+import asyncio
+from ollama import AsyncClient
 
 # 录音设置
 FORMAT = pyaudio.paInt16
@@ -21,13 +23,13 @@ class AudioRecorder(QMainWindow):
         self.is_recording = False
         self.stream = None
         self.frames = []
-        self.markdown_content = "# Ollma AI Voice-assiant\n\n"
+        self.markdown_content = "# Ollma AI Voice Assistant\n\n"
         self.update_markdown()
         self.whisper_model = whisper.load_model('medium')  
         self.transcript = ""
 
     def initUI(self):
-        self.setWindowTitle('AI Voice Assiant')
+        self.setWindowTitle('AI Voice Assistant')
         
         self.layout = QHBoxLayout()
         
@@ -41,11 +43,11 @@ class AudioRecorder(QMainWindow):
         control_layout.addWidget(self.device_combo)
         self.list_devices()
         
-        self.record_button = QPushButton("Start AI Talking")
+        self.record_button = QPushButton("Start Recording")
         self.record_button.clicked.connect(self.toggle_recording)
         control_layout.addWidget(self.record_button)
 
-        self.status_label = QLabel("Press 'Start Talk' to begin.")
+        self.status_label = QLabel("Press 'Start Recording' to begin.")
         control_layout.addWidget(self.status_label)
 
         control_container = QWidget()
@@ -71,15 +73,15 @@ class AudioRecorder(QMainWindow):
     def toggle_recording(self):
         if not self.is_recording:
             self.start_recording()
-            self.add_markdown_content("YOU:")
+            self.add_markdown_content("**YOU:** \n")
         else:
-            self.stop_recording()
-            self.add_markdown_content("YOU[DAID]")
+            asyncio.run(self.stop_recording())
+            self.add_markdown_content("**Recording Stopped.** \n")
 
     def start_recording(self):
         self.is_recording = True
-        self.record_button.setText("Stop Talk")
-        self.status_label.setText("Talking... Press 'Stop Talk' to send a new query.")
+        self.record_button.setText("Stop Recording")
+        self.status_label.setText("Recording... Press 'Stop Recording' to send a new query.")
         self.frames = []
         device_index = self.device_combo.currentData()
 
@@ -94,14 +96,15 @@ class AudioRecorder(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
             self.is_recording = False
-            self.record_button.setText("Start Talkiing")
-            self.status_label.setText("Press 'Start Talk' to begin.")
+            self.record_button.setText("Start Recording")
+            self.status_label.setText("Press 'Start Recording' to begin.")
             return
 
-    def stop_recording(self):
+    async def stop_recording(self):
         self.is_recording = False
-        self.stream.stop_stream()
-        self.stream.close()
+        if self.stream is not None:
+            self.stream.stop_stream()
+            self.stream.close()
         
         self.record_button.setText("Start Recording")
         self.status_label.setText(f"Recording stopped. File saved as {WAVE_OUTPUT_FILENAME}")
@@ -113,16 +116,21 @@ class AudioRecorder(QMainWindow):
         wf.setframerate(RATE)
         wf.writeframes(b''.join(self.frames))
         wf.close()
+        
         self.transcript = self.whisper_model.transcribe(WAVE_OUTPUT_FILENAME)['text']
-        self.add_markdown_content(self.transcript)
-        self.response = ollama.chat(model='gemma2', messages=[
-                                {
-                                    'role': 'user',
-                                    'content': self.transcript,
-                                },
-                                ])
-        self.add_markdown_content(self.response['message']['content'])
-
+        self.add_markdown_content(f"**Transcription:** {self.transcript}\n")
+        
+        try:
+            client = AsyncClient()
+            response_content = ""
+            async for part in (await client.chat(model='gemma2', messages=[{'role': 'user', 'content': self.transcript}], stream=True)):
+                response_content += part['message']['content'].replace('\n', ' ')  # Concatenate without newlines
+            self.add_markdown_content(f"**AI:** {response_content}\n")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+        finally:
+            if self.stream is not None:
+                self.stream = None
 
     def callback(self, in_data, frame_count, time_info, status):
         if status:
@@ -133,10 +141,13 @@ class AudioRecorder(QMainWindow):
         return (None, pyaudio.paContinue)
 
     def closeEvent(self, event):
+        if self.stream is not None:
+            self.stream.stop_stream()
+            self.stream.close()
         self.p.terminate()  # 确保在应用程序关闭时终止 pyaudio 对象
 
     def add_markdown_content(self, content):
-        self.markdown_content += f"\n{content}\n"
+        self.markdown_content += f"{content}\n"
         self.update_markdown()
 
     def update_markdown(self):
