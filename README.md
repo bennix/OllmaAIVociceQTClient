@@ -1,5 +1,10 @@
 
 
+> **License / 许可:** Original code authored by bennix: **GPL-3.0-only**.
+> Upstream and third-party material retain their original terms and notices.
+> See [LICENSE](LICENSE) and [LICENSING.md](LICENSING.md) for the current licensing scope.
+
+
 ---
 
 # AI Voice Assistant
@@ -48,7 +53,7 @@ This project is an AI Voice Assistant that allows users to record their voice an
 
 
 ### License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Original code authored by bennix is licensed under GPL-3.0-only - see the [LICENSE](LICENSE) file for details.
 
 ---
 
